@@ -1,4 +1,4 @@
-<img src="./atmwwguo.png"
+<img src="./foto/atmwwguo.png"
 style="width:6.46875in;height:6.46875in" />
 
 > Documentazione tecnica “Prog Mappa”.
@@ -1812,11 +1812,11 @@ error.message);
 
 \</html\>
 
-> <img src="./32kp01jz.png"
-> style="width:6.51042in;height:3.20833in" /><img src="./mrbqmneh.png"
+> <img src="./foto/32kp01jz.png"
+> style="width:6.51042in;height:3.20833in" /><img src="./foto/mrbqmneh.png"
 > style="width:6.51042in;height:3.17708in" />● 10.5 immagini schermate
 
-<img src="./bd3jewvz.png"
+<img src="./foto/bd3jewvz.png"
 style="width:6.51042in;height:3.19792in" />
 
 ● 11. Appendici
