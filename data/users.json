@@ -1,0 +1,17 @@
+[
+  {
+    "id": 1,
+    "username": "nicolo e frocio",
+    "password": "$2a$10$CoZv52.L2gzCnOs.jVlqTeA7rA5r1vhUuv8D30XjsJbFLKU9MihOW"
+  },
+  {
+    "id": 2,
+    "username": "dariuz",
+    "password": "$2a$10$ywMtPOikgCbtCXVPr29fyubGrREcO5zDuTHXxtN4cYG8X7LYMQWHe"
+  },
+  {
+    "id": 3,
+    "username": "dario",
+    "password": "$2a$10$PlccNJYfIUAN/YlInJ6/IuCqOty8Wz.jxBRpAs4X87HT5JvRHVGIm"
+  }
+]

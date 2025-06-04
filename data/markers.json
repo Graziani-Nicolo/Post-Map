@@ -1,0 +1,42 @@
+[
+  {
+    "id": 1,
+    "user_id": 1,
+    "name": "s",
+    "description": "s",
+    "latitude": "17.14079039331665",
+    "longitude": "8.876953125000002"
+  },
+  {
+    "id": 2,
+    "user_id": 2,
+    "name": "brazil",
+    "description": "s",
+    "latitude": "-9.79567758282973",
+    "longitude": "-77.16796875000001"
+  },
+  {
+    "id": 3,
+    "user_id": 1,
+    "name": "s",
+    "description": "s",
+    "latitude": "40.17887331434698",
+    "longitude": "-96.6796875"
+  },
+  {
+    "id": 4,
+    "user_id": 3,
+    "name": "Sigma",
+    "description": "Sigma",
+    "latitude": "-50.58966021791753",
+    "longitude": "166.10487520694736"
+  },
+  {
+    "id": 5,
+    "user_id": 3,
+    "name": "inizio trekking A",
+    "description": "Partenza ore 9:00 con Marco",
+    "latitude": "44.81892469068898",
+    "longitude": "7.208511829376222"
+  }
+]

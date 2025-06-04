@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mappa dei Marker</title>
+    <!-- Inclusione del CSS di Leaflet per la visualizzazione della mappa -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <style>
+        /* Stile generale della pagina */
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            display: flex;
+            height: 100vh;
+        }
+        /* Stile della barra laterale */
+        #sidebar {
+            width: 300px;
+            background-color: #f8f9fa;
+            padding: 20px;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+        /* Stile del contenitore della mappa */
+        #map {
+            flex-grow: 1;
+            height: 100vh;
+        }
+        /* Stile del form per aggiungere/modificare marker */
+        .marker-form {
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #333;
+        }
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        /* Stile dei pulsanti */
+        button {
+            background-color: #1a73e8;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background-color: #1557b0;
+        }
+        button.delete {
+            background-color: #dc3545;
+        }
+        button.delete:hover {
+            background-color: #c82333;
+        }
+        /* Stile della lista dei marker */
+        .marker-list {
+            margin-top: 20px;
+        }
+        .marker-item {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            background-color: white;
+            cursor: pointer;
+        }
+        .marker-item:hover {
+            background-color: #f0f0f0;
+        }
+        .marker-item h3 {
+            margin: 0 0 5px 0;
+            color: #333;
+        }
+        .marker-item p {
+            margin: 0;
+            color: #666;
+            font-size: 0.9em;
+        }
+        /* Stile del pulsante di logout */
+        #logout-btn {
+            margin-top: auto;
+            background-color: #6c757d;
+        }
+        #logout-btn:hover {
+            background-color: #5a6268;
+        }
+    </style>
+</head>
+<body>
+    <!-- Barra laterale con form e lista marker -->
+    <div id="sidebar">
+        <!-- Form per aggiungere/modificare marker -->
+        <div class="marker-form">
+            <h2>Aggiungi/Modifica Marker</h2>
+            <form id="markerForm">
+                <!-- Campo nascosto per l'ID del marker (usato per le modifiche) -->
+                <input type="hidden" id="markerId">
+                <div class="form-group">
+                    <label for="markerName">Nome</label>
+                    <input type="text" id="markerName" required>
+                </div>
+                <div class="form-group">
+                    <label for="markerDescription">Descrizione</label>
+                    <textarea id="markerDescription" rows="3" required></textarea>
+                </div>
+                <button type="submit" id="saveMarker">Salva Marker</button>
+                <button type="button" id="cancelEdit" style="display: none;">Annulla Modifica</button>
+                <button type="button" id="deleteMarker" class="delete" style="display: none;">Elimina Marker</button>
+            </form>
+        </div>
+        <!-- Lista dei marker dell'utente -->
+        <div class="marker-list">
+            <h2>I tuoi Marker</h2>
+            <div id="markersList"></div>
+        </div>
+        <!-- Pulsante di logout -->
+        <a href="/logout" id="logout-btn" class="button">Logout</a>
+    </div>
+    <!-- Contenitore della mappa -->
+    <div id="map"></div>
+
+    <!-- Inclusione della libreria Leaflet per la mappa -->
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script>
+        // Variabili globali
+        let map;                // Oggetto mappa di Leaflet
+        let markers = {};       // Oggetto per memorizzare i marker aggiunti alla mappa
+        let currentMarker = null; // Marker temporaneo durante la creazione
+
+        // Definizione dell'icona del marker rosso (per i marker dell'utente corrente)
+        const redMarkerIcon = L.icon({
+            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+            shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [1, -34],
+            shadowSize: [41, 41]
+        });
+
+        // Definizione dell'icona del marker blu (per i marker degli altri utenti)
+        const blueMarkerIcon = L.icon({
+            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+            shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [1, -34],
+            shadowSize: [41, 41]
+        });
+
+        /**
+         * Inizializza la mappa Leaflet
+         * Configura la vista iniziale e gli eventi
+         */
+        function initMap() {
+            // Crea la mappa centrata a coordinate [0,0] con zoom 2
+            map = L.map('map', {
+                zoomAnimation: true,
+                markerZoomAnimation: true,
+                maxZoom: 18
+            }).setView([0, 0], 2);
+            
+            // Aggiunge il layer di OpenStreetMap
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+
+            // Aggiunge gli event listener
+            map.on('click', onMapClick);
+            map.on('zoomend', function() {
+                // Aggiorna lo z-index dei marker quando cambia lo zoom
+                Object.values(markers).forEach(({marker}) => {
+                    marker.setZIndexOffset(1000 + map.getZoom());
+                });
+            });
+            
+            // Carica i marker esistenti
+            loadMarkers();
+        }
+
+        /**
+         * Carica i marker esistenti dal server
+         * Utilizza l'API /api/markers per ottenere tutti i marker
+         */
+        function loadMarkers() {
+            fetch('/api/markers')
+                .then(response => response.json())
+                .then(data => {
+                    // Aggiunge ogni marker alla mappa
+                    data.forEach(marker => addMarkerToMap(marker));
+                    // Aggiorna la lista dei marker nella sidebar
+                    updateMarkersList();
+                })
+                .catch(error => console.error('Errore nel caricamento dei marker:', error));
+        }
+
+        /**
+         * Aggiunge un marker alla mappa
+         * @param {Object} markerData - Dati del marker da aggiungere
+         */
+        function addMarkerToMap(markerData) {
+            // Crea un oggetto LatLng con le coordinate del marker
+            const latLng = L.latLng(markerData.latitude, markerData.longitude);
+            // Determina se il marker appartiene all'utente corrente
+            const isCurrentUser = markerData.user_id === parseInt('<%= session.userId %>');
+            // Sceglie l'icona appropriata (rossa per l'utente corrente, blu per gli altri)
+            const markerIcon = isCurrentUser ? redMarkerIcon : blueMarkerIcon;
+            
+            // Crea il marker Leaflet e lo aggiunge alla mappa
+            const marker = L.marker(latLng, {
+                riseOnHover: true,
+                zIndexOffset: 1000 + map.getZoom(),
+                autoPanOnFocus: true,
+                bubblingMouseEvents: false,
+                draggable: false,
+                keyboard: false,
+                icon: markerIcon
+            })
+            .addTo(map)
+            .bindPopup(`<b>${markerData.name}</b><br>${markerData.description}<br><i>Creato da: ${markerData.username}</i>`, {
+                autoPan: true,
+                keepInView: true,
+                closeButton: true,
+                offset: L.point(0, -20)
+            });
+
+            // Memorizza il marker e i suoi dati nell'oggetto markers
+            markers[markerData.id] = {
+                marker: marker,
+                data: markerData
+            };
+
+            // Aggiunge l'event listener per il click sul marker
+            marker.on('click', () => selectMarker(markerData));
+        }
+
+        /**
+         * Gestisce il click sulla mappa
+         * Crea un marker temporaneo nel punto cliccato
+         * @param {Object} e - Evento di click
+         */
+        function onMapClick(e) {
+            // Se è in corso una modifica, non fare nulla
+            if (document.getElementById('markerId').value) return;
+
+            // Rimuovi il marker temporaneo precedente, se esiste
+            if (currentMarker) {
+                map.removeLayer(currentMarker);
+            }
+
+            // Crea un nuovo marker temporaneo nel punto cliccato
+            const latLng = L.latLng(e.latlng.lat, e.latlng.lng);
+            currentMarker = L.marker(latLng, {
+                draggable: false,
+                keyboard: false,
+                zIndexOffset: 1000 + map.getZoom(),
+                icon: redMarkerIcon
+            }).addTo(map);
+            
+            // Memorizza le coordinate nel form per il salvataggio
+            document.getElementById('markerForm').dataset.lat = latLng.lat;
+            document.getElementById('markerForm').dataset.lng = latLng.lng;
+        }
+
+        /**
+         * Seleziona un marker per la visualizzazione o modifica
+         * @param {Object} markerData - Dati del marker selezionato
+         */
+        function selectMarker(markerData) {
+            // Reset del form prima di procedere
+            resetForm();
+            
+            // Verifica se l'utente corrente è il proprietario del marker
+            const currentUserId = parseInt('<%= session.userId %>');
+            if (markerData.user_id === currentUserId) {
+                // L'utente è il proprietario del marker: abilita la modifica
+                document.getElementById('markerId').value = markerData.id;
+                document.getElementById('markerName').value = markerData.name;
+                document.getElementById('markerDescription').value = markerData.description;
+                document.getElementById('deleteMarker').style.display = 'block';
+                document.getElementById('cancelEdit').style.display = 'block';
+            } else {
+                // Solo visualizzazione per i marker di altri utenti
+                const marker = markers[markerData.id].marker;
+                marker.openPopup();
+                // Assicuriamoci che il form sia pulito
+                document.getElementById('markerId').value = '';
+            }
+        }
+
+        /**
+         * Aggiorna la lista dei marker nella sidebar
+         */
+        function updateMarkersList() {
+            const markersList = document.getElementById('markersList');
+            markersList.innerHTML = '';
+
+            // Crea un elemento per ogni marker
+            Object.values(markers).forEach(({data}) => {
+                const markerItem = document.createElement('div');
+                markerItem.className = 'marker-item';
+                
+                // Verifica se l'utente corrente è il proprietario del marker
+                const isOwner = data.user_id === parseInt('<%= session.userId %>');
+                
+                // Popola l'elemento con i dati del marker
+                markerItem.innerHTML = `
+                    <h3>${data.name}</h3>
+                    <p>${data.description}</p>
+                    <p style="color: #888; font-size: 0.8em;">Creato da: ${data.username}</p>
+                    ${isOwner ? '<p style="color: #1a73e8; font-size: 0.8em;">(Puoi modificare questo marker)</p>' : ''}
+                `;
+                
+                // Aggiunge l'event listener per il click sull'elemento
+                markerItem.onclick = () => {
+                    selectMarker(data);
+                    map.setView([data.latitude, data.longitude], 13);
+                };
+                
+                // Aggiunge l'elemento alla lista
+                markersList.appendChild(markerItem);
+            });
+        }
+
+        /**
+         * Gestisce l'invio del form per salvare o aggiornare un marker
+         */
+        document.getElementById('markerForm').onsubmit = function(e) {
+            e.preventDefault();
+            const markerId = document.getElementById('markerId').value;
+            const name = document.getElementById('markerName').value;
+            const description = document.getElementById('markerDescription').value;
+
+            // Verifica che l'utente sia il proprietario del marker prima di modificarlo
+            if (markerId && markers[markerId].data.user_id !== parseInt('<%= session.userId %>')) {
+                alert('Non hai il permesso di modificare questo marker');
+                resetForm();
+                return;
+            }
+
+            // Prepara i dati da inviare
+            const data = {
+                name,
+                description,
+                latitude: markerId ? markers[markerId].data.latitude : this.dataset.lat,
+                longitude: markerId ? markers[markerId].data.longitude : this.dataset.lng
+            };
+
+            // Determina il metodo HTTP e l'URL in base all'operazione (creazione o modifica)
+            const method = markerId ? 'PUT' : 'POST';
+            const url = markerId ? `/api/markers/${markerId}` : '/api/markers';
+
+            // Invia la richiesta al server
+            fetch(url, {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Operazione non autorizzata');
+                }
+                return response.json();
+            })
+            .then(markerData => {
+                // In caso di modifica, rimuovi il marker esistente
+                if (markerId) {
+                    map.removeLayer(markers[markerId].marker);
+                    delete markers[markerId];
+                } else if (currentMarker) {
+                    // In caso di creazione, rimuovi il marker temporaneo
+                    map.removeLayer(currentMarker);
+                    currentMarker = null;
+                }
+
+                // Aggiungi il nuovo marker alla mappa e aggiorna la lista
+                addMarkerToMap(markerData);
+                updateMarkersList();
+                resetForm();
+            })
+            .catch(error => {
+                console.error('Errore nel salvare il marker:', error);
+                alert('Non è stato possibile completare l\'operazione: ' + error.message);
+            });
+        };
+
+        /**
+         * Gestisce l'eliminazione di un marker
+         */
+        document.getElementById('deleteMarker').onclick = function() {
+            const markerId = document.getElementById('markerId').value;
+            if (!markerId) return;
+
+            // Verifica che l'utente sia il proprietario del marker prima di eliminarlo
+            if (markers[markerId].data.user_id !== parseInt('<%= session.userId %>')) {
+                alert('Non hai il permesso di eliminare questo marker');
+                resetForm();
+                return;
+            }
+
+            // Invia la richiesta di eliminazione al server
+            fetch(`/api/markers/${markerId}`, { method: 'DELETE' })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Operazione non autorizzata');
+                    }
+                    // Rimuovi il marker dalla mappa e dall'oggetto markers
+                    map.removeLayer(markers[markerId].marker);
+                    delete markers[markerId];
+                    // Aggiorna la lista e resetta il form
+                    updateMarkersList();
+                    resetForm();
+                })
+                .catch(error => {
+                    console.error('Errore nell\'eliminazione del marker:', error);
+                    alert('Non è stato possibile eliminare il marker: ' + error.message);
+                });
+        };
+
+        // Gestione annullamento modifica
+        document.getElementById('cancelEdit').onclick = resetForm;
+
+        /**
+         * Resetta il form e nasconde i pulsanti di modifica/eliminazione
+         */
+        function resetForm() {
+            document.getElementById('markerForm').reset();
+            document.getElementById('markerId').value = '';
+            document.getElementById('deleteMarker').style.display = 'none';
+            document.getElementById('cancelEdit').style.display = 'none';
+        }
+
+        // Inizializza la mappa al caricamento della pagina
+        initMap();
+    </script>
+</body>
+</html>
